@@ -27,8 +27,21 @@ jobs:
     - name: Build and Pack
       run: msbuild src/WindowSill.PerfCounter/WindowSill.PerfCounter.csproj /p:Configuration=Release /p:Platform="Any CPU" /p:PackageOutputPath=${{ github.workspace }}/artifacts /p:RestorePackages=false
 
+    - name: Create WindowSill Extension File
+      run: |
+        $nupkgFile = Get-ChildItem -Path "${{ github.workspace }}/artifacts" -Filter "WindowSill.PerfCounter.*.nupkg" | Select-Object -First 1
+        if ($nupkgFile) {
+          $version = $nupkgFile.Name -replace 'WindowSill\.PerfCounter\.(.+)\.nupkg', '$1'
+          $wsextFile = "WindowSill.PerfCounter.$version.wsext"
+          Copy-Item -Path $nupkgFile.FullName -Destination "${{ github.workspace }}/artifacts/$wsextFile"
+          Write-Host "Created $wsextFile"
+        }
+      shell: pwsh
+
     - name: Upload Build Artifact
       uses: actions/upload-artifact@v4
       with:
         name: WindowSill.PerfCounter.Extension
-        path: ${{ github.workspace }}/artifacts/*.nupkg
+        path: |
+          ${{ github.workspace }}/artifacts/*.nupkg
+          ${{ github.workspace }}/artifacts/*.wsext
