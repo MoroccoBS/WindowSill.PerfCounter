@@ -1,0 +1,34 @@
+name: Build and Upload Artifact
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.x'
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Restore dependencies
+      run: dotnet restore src/WindowSill.PerfCounter/WindowSill.PerfCounter.csproj
+
+    - name: Build and Pack
+      run: msbuild src/WindowSill.PerfCounter/WindowSill.PerfCounter.csproj /p:Configuration=Release /p:Platform="Any CPU" /p:PackageOutputPath=${{ github.workspace }}/artifacts /p:RestorePackages=false
+
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: WindowSill.PerfCounter.Extension
+        path: ${{ github.workspace }}/artifacts/*.nupkg
