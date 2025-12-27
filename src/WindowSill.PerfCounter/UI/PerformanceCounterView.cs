@@ -47,7 +47,7 @@ public sealed class PerformanceCounterView : Button
                                         _cpuIcon
                                             .Source(new SvgImageSource(new Uri(System.IO.Path.Combine(_pluginInfo.GetPluginContentDirectory(), "Assets", "microchip.svg")))),
                                         new TextBlock()
-                                            .MinWidth(32)
+                                            .MinWidth(60) // Increased from 32 to accommodate temperature
                                             .VerticalAlignment(VerticalAlignment.Center)
                                             .Text(x => x.Binding(() => vm.CpuText).OneWay())
                                     ),
@@ -74,7 +74,7 @@ public sealed class PerformanceCounterView : Button
                                         _gpuIcon
                                             .Source(new SvgImageSource(new Uri(System.IO.Path.Combine(_pluginInfo.GetPluginContentDirectory(), "Assets", "video_card.svg")))),
                                         new TextBlock()
-                                            .MinWidth(32)
+                                            .MinWidth(60) // Increased from 32 to accommodate temperature
                                             .VerticalAlignment(VerticalAlignment.Center)
                                             .Text(x => x.Binding(() => vm.GpuText).OneWay())
                                     )

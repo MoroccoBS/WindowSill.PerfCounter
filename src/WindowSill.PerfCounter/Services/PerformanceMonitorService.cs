@@ -5,7 +5,10 @@ using Windows.Win32;
 using System.Runtime.InteropServices.ComTypes;
 using Windows.Win32.System.SystemInformation;
 
+using LibreHardwareMonitor.Hardware; 
+
 namespace WindowSill.PerfCounter.Services;
+
 
 [Export(typeof(IPerformanceMonitorService))]
 public class PerformanceMonitorService : IPerformanceMonitorService, IDisposable
@@ -20,11 +23,32 @@ public class PerformanceMonitorService : IPerformanceMonitorService, IDisposable
 
     public event EventHandler<PerformanceDataEventArgs>? PerformanceDataUpdated;
 
+    private readonly Computer _computer; // Add this field
+
     [ImportingConstructor]
     public PerformanceMonitorService()
     {
         _timer = new Timer(OnTimerCallback, null, Timeout.Infinite, Timeout.Infinite);
         _gpuMonitor = new GpuMonitorService();
+
+        // Initialize LibreHardwareMonitor
+        _computer = new Computer
+        {
+            IsCpuEnabled = true,
+            IsGpuEnabled = true
+        };
+        
+        try 
+        {
+            _computer.Open();
+        }
+        catch (Exception ex)
+        {
+            // Handle lacking admin privileges or initialization errors
+            System.Diagnostics.Debug.WriteLine($"Failed to open hardware monitor: {ex.Message}");
+        }
+
+
         InitializeCpuUsageTracking();
     }
 
@@ -33,6 +57,7 @@ public class PerformanceMonitorService : IPerformanceMonitorService, IDisposable
         StopMonitoring();
         _timer?.Dispose();
         _gpuMonitor?.Dispose();
+        _computer?.Close(); // Close the computer connection
     }
 
     public void StartMonitoring()
@@ -66,10 +91,16 @@ public class PerformanceMonitorService : IPerformanceMonitorService, IDisposable
         double memoryUsage = GetMemoryUsage();
         double? gpuUsage = _gpuMonitor.GetGpuUsage();
 
+        // Get Temperatures
+        double? cpuTemp = GetCpuTemperature();
+        double? gpuTemp = GetGpuTemperature();
+
         return new PerformanceData(
             cpuUsage,
+            cpuTemp,     // Pass new data
             memoryUsage,
-            gpuUsage
+            gpuUsage,
+            gpuTemp      // Pass new data
         );
     }
 
@@ -157,6 +188,52 @@ public class PerformanceMonitorService : IPerformanceMonitorService, IDisposable
         double memoryUsage = (double)memoryStatus.dwMemoryLoad;
 
         return memoryUsage;
+    }
+
+    private double? GetCpuTemperature()
+    {
+        try
+        {
+            // You must call Accept or Update to refresh sensor data
+            foreach (var hardware in _computer.Hardware)
+            {
+                if (hardware.HardwareType == HardwareType.Cpu)
+                {
+                    hardware.Update();
+                    // Look for the "Package" temperature or the average of cores
+                    var tempSensor = hardware.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Temperature && s.Name.Contains("Package")) 
+                                     ?? hardware.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Temperature);
+
+                    return tempSensor?.Value;
+                }
+            }
+        }
+        catch { /* Ignore errors */ }
+        return null;
+    }
+
+    private double? GetGpuTemperature()
+    {
+        try
+        {
+            foreach (var hardware in _computer.Hardware)
+            {
+                // Check for Nvidia, AMD or Intel GPUs
+                if (hardware.HardwareType == HardwareType.GpuNvidia || 
+                    hardware.HardwareType == HardwareType.GpuAmd || 
+                    hardware.HardwareType == HardwareType.GpuIntel)
+                {
+                    hardware.Update();
+                    var tempSensor = hardware.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Temperature);
+                    if (tempSensor?.Value != null)
+                    {
+                        return tempSensor.Value;
+                    }
+                }
+            }
+        }
+        catch { /* Ignore errors */ }
+        return null;
     }
 
     private static ulong FileTimeToUInt64(FILETIME fileTime)

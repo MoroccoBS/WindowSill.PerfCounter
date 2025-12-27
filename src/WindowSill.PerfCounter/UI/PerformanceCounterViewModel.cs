@@ -27,16 +27,27 @@ public partial class PerformanceCounterViewModel : ObservableObject
     private long memoryTotalMB;
 
     [ObservableProperty]
+    private double? cpuTemp; // Add
+
+    [ObservableProperty]
+    private double? gpuTemp; // Add
+
+    [ObservableProperty]
     private bool isPercentageMode = true;
 
     [ObservableProperty]
     private double animationSpeed = 1.0;
 
-    public string CpuText => $"{CpuUsage:F0}%";
+    public string CpuText => CpuTemp.HasValue 
+        ? $"{CpuUsage:F0}% {CpuTemp:F0}°" 
+        : $"{CpuUsage:F0}%";
 
     public string MemoryText => $"{MemoryUsage:F0}%";
 
-    public string GpuText => $"{GpuUsage:F0}%";
+    // Modify GpuText to show Temp if available
+    public string GpuText => GpuTemp.HasValue
+        ? $"{GpuUsage:F0}% {GpuTemp:F0}°"
+        : $"{GpuUsage:F0}%";
 
     public PerformanceCounterViewModel(
         IPerformanceMonitorService performanceMonitorService,
@@ -75,8 +86,10 @@ public partial class PerformanceCounterViewModel : ObservableObject
         ThreadHelper.RunOnUIThreadAsync(() =>
         {
             CpuUsage = e.Data.CpuUsage;
+            CpuTemp = e.Data.CpuTemp;       // Update property
             MemoryUsage = e.Data.MemoryUsage;
             GpuUsage = e.Data.GpuUsage;
+            GpuTemp = e.Data.GpuTemp;       // Update property
 
             UpdateAnimationSpeed();
 
